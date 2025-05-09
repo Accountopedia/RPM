@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Practice Management Tool</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; }
+    header { background: #0077b6; color: white; padding: 15px; text-align: center; font-size: 20px; position: relative; }
+    header button { position: absolute; top: 15px; right: 20px; padding: 6px 10px; background: #023e8a; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .container { padding: 20px; }
+    .hidden { display: none; }
+    input, select, textarea, button, a.download-link {
+      display: block; margin: 10px 0; padding: 8px;
+      width: 100%; max-width: 400px; text-decoration: none; text-align: center;
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; table-layout: fixed; }
+    th, td { padding: 10px; border: 1px solid #ccc; text-align: left; word-wrap: break-word; }
+    th { background: #e9ecef; }
+    .admin-section { background: #fff; padding: 15px; margin-top: 30px; border-radius: 8px; }
+    .admin-table { margin-top: 15px; width: 100%; border: 1px solid #ccc; border-collapse: collapse; background: #fff; table-layout: fixed; }
+    .admin-table th, .admin-table td { padding: 8px; border: 1px solid #ccc; word-wrap: break-word; }
+    .admin-table th:nth-child(1), .admin-table td:nth-child(1) { width: 20%; }
+    .admin-table th:nth-child(2), .admin-table td:nth-child(2) { width: 50%; }
+    .admin-table th:nth-child(3), .admin-table td:nth-child(3) { width: 30%; text-align: center; }
+    .icon-btn { cursor: pointer; background: none; border: none; font-size: 16px; }
+    .upload-input { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    Practice Management Portal
+    <button onclick="logoutUser()">Logout</button>
+  </header>
+  <div class="container">
+    <div id="loginSection">
+      <h2>Login</h2>
+      <input type="text" id="loginUser" placeholder="Username">
+      <input type="password" id="loginPass" placeholder="Password">
+      <button onclick="loginUser()">Login</button>
+      <p id="loginStatus" style="color: red;"></p>
+    </div>
+    <div id="appSection" class="hidden">
+      <h2>Employee Time Entry</h2>
+      <label>Client</label>
+      <select id="clientSelect"></select>
+      <label>Work Code</label>
+      <select id="workCodeSelect"></select>
+      <label>Hours</label>
+      <input type="number" id="hours">
+      <label>Rate</label>
+      <input type="number" id="rate">
+      <label>Memo</label>
+      <textarea id="memo"></textarea>
+      <button onclick="logEntry()">Save Draft</button>
+      <table>
+        <thead>
+          <tr>
+            <th>Client</th><th>Work Code</th><th>Hours</th><th>Rate</th><th>Memo</th><th>Billable</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="draftPreview"></tbody>
+      </table>
+      <p><strong>Total Billable:</strong> <span id="billableTotal">0</span></p>
+      <p><strong>Total Non-Billable:</strong> <span id="nonBillableTotal">0</span></p>
+      <div id="adminPanel" class="admin-section hidden">
+        <h2>Admin Panel</h2>
+        <h3>Add Client</h3>
+        <input type="text" id="newClientName" placeholder="Client Name">
+        <button onclick="addClient()">Add Client</button>
+        <table class="admin-table"><thead><tr><th>Code</th><th>Name</th><th>Actions</th></tr></thead><tbody id="clientList"></tbody></table>
+        <h3>Add Work Code</h3>
+        <input type="text" id="newWorkDesc" placeholder="Work Description">
+        <select id="newWorkBillable"><option value="true">Billable</option><option value="false">Non-Billable</option></select>
+        <button onclick="addWorkCode()">Add Work Code</button>
+        <table class="admin-table"><thead><tr><th>Code</th><th>Description</th><th>Billable</th><th>Actions</th></tr></thead><tbody id="workCodeList"></tbody></table>
+        <h3>Add Employee</h3>
+        <input type="text" id="newEmpName" placeholder="Employee Name">
+        <input type="text" id="newEmpUsername" placeholder="Username">
+        <input type="password" id="newEmpPassword" placeholder="Password">
+        <button onclick="addEmployee()">Add Employee</button>
+        <table class="admin-table"><thead><tr><th>Code</th><th>Name</th><th>Username</th><th>Actions</th></tr></thead><tbody id="employeeList"></tbody></table>
+      </div>
+    </div>
+  </div>
+  <script>
+    let clients = [], workCodes = [], employees = [{ name: 'Harjit Singh', username: 'harjit', password: 'test123', code: 'HS' }];
+    let currentEmp = null, draftEntries = [];
+
+    function logoutUser() {
+      currentEmp = null;
+      document.getElementById('appSection').classList.add('hidden');
+      document.getElementById('loginSection').classList.remove('hidden');
+      document.getElementById('adminPanel').classList.add('hidden');
+    }
+    function loginUser() {
+      const user = document.getElementById('loginUser').value.trim();
+      const pass = document.getElementById('loginPass').value.trim();
+      if (user === 'admin' && pass === 'admin123') {
+        currentEmp = { username: 'admin', role: 'admin' };
+        document.getElementById('adminPanel').classList.remove('hidden');
+      } else {
+        const match = employees.find(e => e.username === user && e.password === pass);
+        if (!match) return document.getElementById('loginStatus').textContent = 'Invalid login';
+        currentEmp = { username: user, role: 'employee' };
+      }
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('appSection').classList.remove('hidden');
+    }
+    function addClient() {
+      const name = document.getElementById('newClientName').value.trim();
+      if (!name) return;
+      const code = name.slice(0, 3).toUpperCase() + Math.floor(Math.random() * 900 + 100);
+      clients.push({ name, code });
+      renderClients();
+    }
+    function renderClients() {
+      const list = document.getElementById('clientList');
+      const dropdown = document.getElementById('clientSelect');
+      list.innerHTML = ''; dropdown.innerHTML = '';
+      clients.forEach(c => {
+        list.innerHTML += `<tr><td>${c.code}</td><td>${c.name}</td><td><button onclick="deleteClient('${c.code}')">🗑️</button></td></tr>`;
+        dropdown.innerHTML += `<option value="${c.code}">${c.code} - ${c.name}</option>`;
+      });
+    }
+    function deleteClient(code) {
+      clients = clients.filter(c => c.code !== code);
+      renderClients();
+    }
+    function addWorkCode() {
+      const desc = document.getElementById('newWorkDesc').value.trim();
+      const billable = document.getElementById('newWorkBillable').value === 'true';
+      if (!desc) return;
+      const code = desc.slice(0, 3).toUpperCase() + '100';
+      workCodes.push({ desc, billable, code });
+      renderWorkCodes();
+    }
+    function renderWorkCodes() {
+      const list = document.getElementById('workCodeList');
+      const dropdown = document.getElementById('workCodeSelect');
+      list.innerHTML = ''; dropdown.innerHTML = '';
+      workCodes.forEach(c => {
+        list.innerHTML += `<tr><td>${c.code}</td><td>${c.desc}</td><td>${c.billable ? 'Yes' : 'No'}</td><td><button onclick="deleteWorkCode('${c.code}')">🗑️</button></td></tr>`;
+        dropdown.innerHTML += `<option value="${c.code}">${c.code} - ${c.desc}</option>`;
+      });
+    }
+    function deleteWorkCode(code) {
+      workCodes = workCodes.filter(c => c.code !== code);
+      renderWorkCodes();
+    }
+    function addEmployee() {
+      const name = document.getElementById('newEmpName').value.trim();
+      const username = document.getElementById('newEmpUsername').value.trim();
+      const password = document.getElementById('newEmpPassword').value.trim();
+      const code = name.split(' ').map(w => w[0]).join('').toUpperCase();
+      employees.push({ name, username, password, code });
+      renderEmployees();
+    }
+    function renderEmployees() {
+      const list = document.getElementById('employeeList');
+      list.innerHTML = '';
+      employees.forEach((e, i) => {
+        list.innerHTML += `<tr><td>${e.code}</td><td>${e.name}</td><td>${e.username}</td><td><button onclick="deleteEmployee(${i})">🗑️</button></td></tr>`;
+      });
+    }
+    function deleteEmployee(i) {
+      employees.splice(i, 1);
+      renderEmployees();
+    }
+    function logEntry() {
+      const workCode = document.getElementById('workCodeSelect').value;
+      const hours = parseFloat(document.getElementById('hours').value);
+      const rate = parseFloat(document.getElementById('rate').value);
+      const memo = document.getElementById('memo').value;
+      const client = document.getElementById('clientSelect').value;
+      const code = workCodes.find(w => w.code === workCode);
+      const entry = { client, workCode, hours, rate, memo, billable: code?.billable };
+      draftEntries.push(entry);
+      renderDrafts();
+    }
+    function renderDrafts() {
+      const list = document.getElementById('draftPreview');
+      let bill = 0, nonBill = 0;
+      list.innerHTML = '';
+      draftEntries.forEach((e, i) => {
+        list.innerHTML += `<tr><td>${e.client}</td><td>${e.workCode}</td><td>${e.hours}</td><td>${e.rate}</td><td>${e.memo}</td><td>${e.billable ? 'Yes' : 'No'}</td><td><button onclick="deleteDraft(${i})">🗑️</button></td></tr>`;
+        e.billable ? bill += e.hours : nonBill += e.hours;
+      });
+      document.getElementById('billableTotal').textContent = bill.toFixed(1);
+      document.getElementById('nonBillableTotal').textContent = nonBill.toFixed(1);
+    }
+    function deleteDraft(i) {
+      draftEntries.splice(i, 1);
+      renderDrafts();
+    }
+  </script>
+</body>
+</html>
